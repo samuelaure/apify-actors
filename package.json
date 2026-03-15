@@ -1,0 +1,31 @@
+{
+  "name": "apify-actors-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Monorepo for custom Apify Actors.",
+  "author": {
+    "name": "Samuel Aure",
+    "url": "https://www.samuelaure.com"
+  },
+  "license": "Proprietary",
+  "workspaces": [
+    "actors/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces",
+    "build": "npm run build --workspaces",
+    "start": "npm run start --workspaces",
+    "lint": "npm run lint --workspaces",
+    "format": "npm run format --workspaces",
+    "test": "npm run test --workspaces",
+    "verify": "npm run verify --workspaces"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "eslint": "^9.0.0",
+    "prettier": "^3.0.0"
+  }
+}
