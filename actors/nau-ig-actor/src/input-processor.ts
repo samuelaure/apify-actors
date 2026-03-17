@@ -27,10 +27,43 @@ export class InputProcessor {
         const input = await Actor.getInput<ActorInput>();
         if (!input) throw new Error('Input is missing.');
 
-        const usernames = (input.usernames || []).map((u) => u.trim().replace(/^@/, '')).filter(Boolean);
-        const postUrls = (input.postUrls || []).map((url) => url.trim()).filter(Boolean);
+        const usernamesRaw = input.usernames || [];
+        const postUrlsRaw = input.postUrls || [];
 
-        if (usernames.length === 0 && postUrls.length === 0) {
+        const usernames: string[] = [];
+        const postUrls: string[] = [];
+
+        // Enhanced Recognition Logic
+        [...usernamesRaw, ...postUrlsRaw].forEach(item => {
+            const trimmed = item.trim();
+            if (!trimmed) return;
+
+            // 1. Detect if it's a specific post URL
+            if (trimmed.includes('/p/') || trimmed.includes('/reels/') || trimmed.includes('/tv/')) {
+                postUrls.push(trimmed);
+                return;
+            }
+
+            // 2. Detect if it's a profile URL or just a username
+            // Handles: @user, user, https://instagram.com/user, instagram.com/user/
+            let username = trimmed;
+            if (trimmed.includes('instagram.com/')) {
+                // Extract username from URL path
+                const path = trimmed.split('instagram.com/')[1];
+                username = path.split('/')[0].split('?')[0];
+            }
+            
+            username = username.replace(/^@/, '');
+            
+            if (username && !postUrls.includes(trimmed)) {
+                usernames.push(username);
+            }
+        });
+
+        const uniqueUsernames = [...new Set(usernames)];
+        const uniquePostUrls = [...new Set(postUrls)];
+
+        if (uniqueUsernames.length === 0 && uniquePostUrls.length === 0) {
             throw new Error('At least one username or post URL must be provided.');
         }
 
@@ -39,15 +72,21 @@ export class InputProcessor {
             olderThanDate.setHours(23, 59, 59, 999);
         }
 
+        // Force Residential Proxies natively if not specified otherwise or if Apify Proxy is enabled
+        const proxyConfig = input.proxyConfiguration || { useApifyProxy: true };
+        if (proxyConfig.useApifyProxy && (!proxyConfig.apifyProxyGroups || proxyConfig.apifyProxyGroups.length === 0)) {
+            proxyConfig.apifyProxyGroups = ['RESIDENTIAL'];
+        }
+
         return {
-            usernames,
-            postUrls,
+            usernames: uniqueUsernames,
+            postUrls: uniquePostUrls,
             newerThanDate: input.newerThan ? new Date(input.newerThan) : null,
             olderThanDate: olderThanDate,
             limit: input.limit ?? 100,
             offset: input.offset ?? 0,
             sortDirection: input.sortDirection ?? 'desc',
-            proxyConfiguration: input.proxyConfiguration,
+            proxyConfiguration: proxyConfig,
         };
     }
 
