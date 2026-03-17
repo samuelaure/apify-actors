@@ -29,6 +29,8 @@ export class IGClient {
                     'sec-fetch-dest': 'empty',
                     'sec-fetch-mode': 'cors',
                     'sec-fetch-site': 'same-origin',
+                    'x-csrftoken': this.getCookieValue('csrftoken') || '',
+                    'x-ig-www-claim': '0',
                     'cookie': this.cookies.join('; '),
                     ...extraHeaders,
                 },
@@ -56,6 +58,14 @@ export class IGClient {
             });
             throw error;
         }
+    }
+
+    private getCookieValue(name: string): string | undefined {
+        for (const cookie of this.cookies) {
+            const match = cookie.match(new RegExp(`(^|\\s|;)${name}=([^;]+)`));
+            if (match) return match[2];
+        }
+        return undefined;
     }
 
     /**
