@@ -29,16 +29,23 @@ export class MediaTransformer {
             post.media.push(this.extractMediaItem(node, false));
         }
 
+        // Add Reel / Product Type markers to metadata if possible (flat properties for dataset)
+        if (node.product_type === 'clips') {
+            (post as any).isReel = true;
+            (post as any).videoDuration = node.video_duration;
+            (post as any).playCount = node.play_count || node.video_view_count;
+        }
+
         return post;
     }
 
     private static extractMediaItem(node: any, isChild: boolean) {
-        const isVideo = node.is_video;
+        const isVideo = node.is_video || node.__typename === 'GraphVideo';
         const type = isChild ? 'sidecar_child' : isVideo ? 'video' : 'image';
 
-        // Select highest resolution
+        // Select highest resolution display resource
         const displayResources = node.display_resources || [];
-        const highestRes = displayResources[displayResources.length - 1] || {
+        const highestRes = [...displayResources].sort((a, b) => (b.config_width * b.config_height) - (a.config_width * a.config_height))[0] || {
             src: node.display_url,
             config_width: node.dimensions?.width,
             config_height: node.dimensions?.height,
@@ -46,12 +53,12 @@ export class MediaTransformer {
 
         return {
             type: type as any,
-            url: isVideo ? node.video_url : highestRes.src,
+            url: isVideo ? (node.video_url || highestRes.src) : highestRes.src,
             width: highestRes.config_width || node.dimensions?.width,
             height: highestRes.config_height || node.dimensions?.height,
-            thumbnail: isVideo ? highestRes.src : undefined,
+            thumbnail: isVideo ? (highestRes.src || node.display_url) : undefined,
             duration: isVideo ? node.video_duration : undefined,
-            viewCount: isVideo ? node.video_view_count : undefined,
+            viewCount: isVideo ? (node.video_view_count || node.play_count) : undefined,
         };
     }
 }
