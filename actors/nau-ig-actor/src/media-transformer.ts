@@ -1,7 +1,7 @@
 import { NauIGPost, NauIGMedia, NauIGComment, NauIGProfile } from './types.js';
 
 export class MediaTransformer {
-    static transformProfilePost(node: any, profileUsername: string): NauIGPost {
+    static transformProfilePost(node: any, profileUsername: string, profileMeta?: NauIGProfile): NauIGPost {
         const author = node.owner || node.user || {};
         const isOwner = author.username === profileUsername;
         const caption = node.edge_media_to_caption?.edges?.[0]?.node?.text || node.caption?.text || '';
@@ -19,9 +19,9 @@ export class MediaTransformer {
             author: {
                 id: author.id || author.pk,
                 username: author.username,
-                fullName: author.full_name,
-                profilePicUrl: author.profile_pic_url,
-                isVerified: !!author.is_verified,
+                fullName: author.full_name || profileMeta?.fullName,
+                profilePicUrl: author.profile_pic_url || profileMeta?.profilePicUrl,
+                isVerified: isOwner && profileMeta ? profileMeta.isVerified : !!author.is_verified,
                 isOwner,
             },
             location: node.location ? {

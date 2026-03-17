@@ -3,7 +3,7 @@ import { Dataset, log } from '@crawlee/cheerio';
 import { InputProcessor } from './input-processor.js';
 import { IGClient } from './ig-client.js';
 import { MediaTransformer } from './media-transformer.js';
-import { NauIGPost } from './types.js';
+import { NauIGPost, NauIGProfile } from './types.js';
 
 await Actor.init();
 
@@ -69,9 +69,10 @@ try {
                 }
             }
             
-            // Push profile info as the first result for this user (Useful for nauthenticity/9nau)
+            let profileMeta: NauIGProfile | undefined;
             if (fullProfile) {
-                allResults.push(MediaTransformer.transformProfile(fullProfile));
+                profileMeta = MediaTransformer.transformProfile(fullProfile);
+                allResults.push(profileMeta);
             }
 
             if (input.mode === 'PROFILE') {
@@ -103,7 +104,13 @@ try {
                             attempts++;
                             if (attempts >= maxAttempts) throw err;
                             const retryDelay = attempts * 10000;
-                            log.warning(`Pagination request failed (attempt ${attempts}/${maxAttempts}): ${err.message}. Retrying in ${retryDelay}ms...`);
+                            log.warning(`Pagination failed for ${username} (Attempt ${attempts}/${maxAttempts}). Rotating proxy and retrying in ${retryDelay}ms...`);
+                            
+                            // Rotate proxy session mid-scrape
+                            const newSessionKey = `user_${username.toLowerCase()}_${Math.random().toString(36).substring(2, 7)}`;
+                            const newProxyUrl = await proxyConfiguration?.newUrl(newSessionKey);
+                            client.setProxy(newProxyUrl!);
+                            
                             await new Promise(resolve => setTimeout(resolve, retryDelay));
                         }
                     }
@@ -150,7 +157,7 @@ try {
 
                     // Offset & Limit
                     if (state.count >= input.offset) {
-                        const post = MediaTransformer.transformProfilePost(node, username);
+                        const post = MediaTransformer.transformProfilePost(node, username, profileMeta);
                         
                         // Fetch comments if needed
                         if (input.maxComments > 0 || input.mode === 'COMMENTS') {
@@ -199,18 +206,20 @@ try {
 
             // Fetch and push owner profile first (Useful for 9nau context)
             const postAuthor = node.owner || node.user || {};
+            let profileMeta: NauIGProfile | undefined;
             if (postAuthor.username) {
                 try {
-                    const { fullProfile } = await client.getUserIdAndInitialData(postAuthor.username);
-                    if (fullProfile) {
-                        allResults.push(MediaTransformer.transformProfile(fullProfile));
+                    const handshake = await client.getUserIdAndInitialData(postAuthor.username);
+                    if (handshake.fullProfile) {
+                        profileMeta = MediaTransformer.transformProfile(handshake.fullProfile);
+                        allResults.push(profileMeta);
                     }
                 } catch (e: any) {
                     log.debug(`Could not fetch profile for post owner ${postAuthor.username}: ${e.message}`);
                 }
             }
 
-            const post = MediaTransformer.transformProfilePost(node, ''); 
+            const post = MediaTransformer.transformProfilePost(node, '', profileMeta); 
             
             // Fetch comments if needed
             if (input.maxComments > 0 || input.mode === 'COMMENTS') {
