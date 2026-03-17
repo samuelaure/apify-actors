@@ -181,9 +181,8 @@ export class IGClient {
         return item;
     }
 
-    async getComments(shortcode: string, limit: number = 20) {
-        log.info(`Fetching comments for post ${shortcode}...`);
-        // We need the media ID (numerical) to fetch comments via api/v1
+    async getComments(shortcode: string, limit: number = 20, includeReplies: boolean = false) {
+        log.info(`Fetching comments for post ${shortcode} (limit: ${limit}, replies: ${includeReplies})...`);
         const postData = await this.getPostDetails(shortcode);
         const mediaId = postData?.id || postData?.pk;
         
@@ -192,15 +191,47 @@ export class IGClient {
             return [];
         }
 
+        const allComments: any[] = [];
+        let nextMaxId: string | undefined = undefined;
+
         try {
-            const url = `https://www.instagram.com/api/v1/media/${mediaId}/comments/?can_viewer_resahre=true`;
-            const body = await this.request(url);
-            const data = JSON.parse(body);
-            const comments = data.comments || [];
-            return comments.slice(0, limit);
+            while (allComments.length < limit) {
+                const url = `https://www.instagram.com/api/v1/media/${mediaId}/comments/`;
+                const searchParams: any = { 
+                    can_viewer_resahre: 'true'
+                };
+                if (nextMaxId) searchParams.max_id = nextMaxId;
+
+                const body = await this.request(url, searchParams);
+                const data = JSON.parse(body);
+                const comments = data.comments || [];
+                
+                for (const comment of comments) {
+                    if (includeReplies && comment.child_comment_count > 0) {
+                        log.debug(`Fetching replies for comment ${comment.pk}...`);
+                        try {
+                            const replyUrl = `https://www.instagram.com/api/v1/media/${mediaId}/comments/${comment.pk}/child_comments/`;
+                            const replyBody = await this.request(replyUrl);
+                            const replyData = JSON.parse(replyBody);
+                            comment.child_comments = replyData.child_comments || [];
+                        } catch (e: any) {
+                            log.debug(`Failed to fetch replies for ${comment.pk}: ${e.message}`);
+                        }
+                    }
+                    allComments.push(comment);
+                    if (allComments.length >= limit) break;
+                }
+
+                nextMaxId = data.next_max_id;
+                if (!nextMaxId || !data.has_more_comments) break;
+                
+                // Small delay between comment pages to avoid rate limits
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            return allComments;
         } catch (error: any) {
             log.error(`Failed to fetch comments for ${shortcode}: ${error.message}`);
-            return [];
+            return allComments;
         }
     }
 }

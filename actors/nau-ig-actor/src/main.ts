@@ -44,10 +44,12 @@ try {
 
             const { userId, initialData, fullProfile } = await client.getUserIdAndInitialData(username);
             
+            // Push profile info as the first result for this user (Useful for nauthenticity/9nau)
+            if (fullProfile) {
+                allResults.push(MediaTransformer.transformProfile(fullProfile));
+            }
+
             if (input.mode === 'PROFILE') {
-                if (fullProfile) {
-                    allResults.push(MediaTransformer.transformProfile(fullProfile));
-                }
                 state.isFinished = true;
                 continue;
             }
@@ -116,7 +118,7 @@ try {
                         
                         // Fetch comments if needed
                         if (input.maxComments > 0 || input.mode === 'COMMENTS') {
-                            const rawComments = await client.getComments(post.shortcode, input.maxComments);
+                            const rawComments = await client.getComments(post.shortcode, input.maxComments, input.includeReplies);
                             post.comments = rawComments.map((c: any) => MediaTransformer.transformComment(c));
                         }
 
@@ -163,7 +165,7 @@ try {
             
             // Fetch comments if needed
             if (input.maxComments > 0 || input.mode === 'COMMENTS') {
-                const rawComments = await client.getComments(post.shortcode, input.maxComments);
+                const rawComments = await client.getComments(post.shortcode, input.maxComments, input.includeReplies);
                 post.comments = rawComments.map((c: any) => MediaTransformer.transformComment(c));
             }
 

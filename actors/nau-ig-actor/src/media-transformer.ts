@@ -2,26 +2,26 @@ import { NauIGPost, NauIGMedia, NauIGComment, NauIGProfile } from './types.js';
 
 export class MediaTransformer {
     static transformProfilePost(node: any, profileUsername: string): NauIGPost {
-        const author = node.owner || {};
+        const author = node.owner || node.user || {};
         const isOwner = author.username === profileUsername;
-        const caption = node.edge_media_to_caption?.edges?.[0]?.node?.text || '';
+        const caption = node.edge_media_to_caption?.edges?.[0]?.node?.text || node.caption?.text || '';
 
         const post: NauIGPost = {
             id: node.id,
-            shortcode: node.shortcode,
-            url: `https://www.instagram.com/p/${node.shortcode}/`,
+            shortcode: node.shortcode || node.code,
+            url: `https://www.instagram.com/p/${node.shortcode || node.code}/`,
             caption,
-            takenAt: new Date(node.taken_at_timestamp * 1000).toISOString(),
-            likesCount: node.edge_media_preview_like?.count || 0,
-            commentsCount: node.edge_media_to_comment?.count || node.edge_threaded_comments?.count || 0,
+            takenAt: new Date((node.taken_at_timestamp || node.taken_at || node.pk) * 1000).toISOString(),
+            likesCount: node.edge_media_preview_like?.count || node.like_count || 0,
+            commentsCount: node.edge_media_to_comment?.count || node.edge_threaded_comments?.count || node.comment_count || 0,
             videoViewCount: node.video_view_count,
             playCount: node.play_count || node.video_play_count,
             author: {
-                id: author.id,
+                id: author.id || author.pk,
                 username: author.username,
                 fullName: author.full_name,
                 profilePicUrl: author.profile_pic_url,
-                isVerified: author.is_verified,
+                isVerified: !!author.is_verified,
                 isOwner,
             },
             location: node.location ? {
@@ -78,17 +78,24 @@ export class MediaTransformer {
     }
 
     static transformComment(node: any): NauIGComment {
-        const author = node.owner || {};
-        return {
-            id: node.id,
+        const author = node.owner || node.user || {};
+        const comment: NauIGComment = {
+            id: (node.id || node.pk).toString(),
             text: node.text || '',
             author: author.username || '',
-            authorId: author.id || '',
+            authorId: (author.id || author.pk).toString(),
             authorProfilePic: author.profile_pic_url || '',
-            takenAt: new Date(node.created_at * 1000).toISOString(),
-            likesCount: node.edge_liked_by?.count || 0,
-            replyCount: node.edge_threaded_comments?.count || 0,
+            takenAt: new Date((node.created_at || node.created_at_utc) * 1000).toISOString(),
+            likesCount: node.edge_liked_by?.count || node.comment_like_count || 0,
+            replyCount: node.edge_threaded_comments?.count || node.child_comment_count || 0,
         };
+
+        // If child comments (replies) are present from deeper scrape
+        if (node.child_comments?.length > 0) {
+            (comment as any).replies = node.child_comments.map((reply: any) => this.transformComment(reply));
+        }
+
+        return comment;
     }
 
     private static extractMediaDetail(node: any, isChild: boolean): NauIGMedia {

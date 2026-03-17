@@ -8,6 +8,7 @@ export interface ActorInput {
     limit?: number;
     offset?: number;
     maxComments?: number;
+    includeReplies?: boolean;
     mode?: 'FEED' | 'PROFILE' | 'COMMENTS';
     sortDirection?: 'asc' | 'desc';
     proxyConfiguration?: any;
@@ -21,6 +22,7 @@ export interface NormalizedInput {
     limit: number;
     offset: number;
     maxComments: number;
+    includeReplies: boolean;
     mode: 'FEED' | 'PROFILE' | 'COMMENTS';
     sortDirection: 'asc' | 'desc';
     proxyConfiguration: any;
@@ -90,6 +92,7 @@ export class InputProcessor {
             limit: input.limit ?? 100,
             offset: input.offset ?? 0,
             maxComments: input.maxComments ?? 20,
+            includeReplies: !!input.includeReplies,
             mode: input.mode ?? 'FEED',
             sortDirection: input.sortDirection ?? 'desc',
             proxyConfiguration: proxyConfig,

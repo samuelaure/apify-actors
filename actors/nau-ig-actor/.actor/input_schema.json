@@ -41,6 +41,12 @@
             "minimum": 0,
             "default": 0
         },
+        "includeReplies": {
+            "title": "Include Comment Replies",
+            "type": "boolean",
+            "description": "Fetch all replies (child comments) for each extracted comment.",
+            "default": false
+        },
         "newerThan": {
             "title": "Newer Than (Date)",
             "type": "string",
