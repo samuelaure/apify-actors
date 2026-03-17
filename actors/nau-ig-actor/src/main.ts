@@ -14,7 +14,7 @@ try {
     const proxyConfiguration = await Actor.createProxyConfiguration(input.proxyConfiguration);
     
     // We will create the client inside the loop to ensure per-profile sticky sessions
-    const allResults: NauIGPost[] = [];
+    const allResults: any[] = [];
 
     // Process Usernames
     for (const username of input.usernames) {
@@ -37,12 +37,21 @@ try {
                 isFinished: false
             });
 
-            if (state.isFinished) {
+            if (state.isFinished && input.mode === 'FEED') {
                 log.info(`Profile ${username} already processed in previous run. Skipping.`);
                 continue;
             }
 
-            const { userId, initialData } = await client.getUserIdAndInitialData(username);
+            const { userId, initialData, fullProfile } = await client.getUserIdAndInitialData(username);
+            
+            if (input.mode === 'PROFILE') {
+                if (fullProfile) {
+                    allResults.push(MediaTransformer.transformProfile(fullProfile));
+                }
+                state.isFinished = true;
+                continue;
+            }
+
             let firstExecution = !state.after && state.count === 0;
 
             while (state.hasNextPage && state.count < input.limit + input.offset) {
@@ -104,6 +113,13 @@ try {
                     // Offset & Limit
                     if (state.count >= input.offset) {
                         const post = MediaTransformer.transformProfilePost(node, username);
+                        
+                        // Fetch comments if needed
+                        if (input.maxComments > 0 || input.mode === 'COMMENTS') {
+                            const rawComments = await client.getComments(post.shortcode, input.maxComments);
+                            post.comments = rawComments.map((c: any) => MediaTransformer.transformComment(c));
+                        }
+
                         allResults.push(post);
                     }
 
@@ -140,13 +156,17 @@ try {
             if (!shortcode) throw new Error(`Could not extract shortcode from URL: ${postUrl}`);
 
             const response = await client.getPostDetails(shortcode);
-            const node = response?.items?.[0] || response?.graphql?.shortcode_media;
+            const node = response;
             if (!node) throw new Error(`Could not find post data for shortcode: ${shortcode}`);
 
-            // Transformation logic might differ slightly for different endpoints
-            // but we'll try to reuse MediaTransformer or adjust it
-            // For now, assume __a=1 response structure
             const post = MediaTransformer.transformProfilePost(node, ''); 
+            
+            // Fetch comments if needed
+            if (input.maxComments > 0 || input.mode === 'COMMENTS') {
+                const rawComments = await client.getComments(post.shortcode, input.maxComments);
+                post.comments = rawComments.map((c: any) => MediaTransformer.transformComment(c));
+            }
+
             allResults.push(post);
         } catch (error: any) {
             log.error(`Failed to scrape post ${postUrl}: ${error.message}`);

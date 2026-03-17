@@ -89,7 +89,7 @@ export class IGClient {
         }
     }
 
-    async getUserIdAndInitialData(username: string): Promise<{ userId: string; initialData?: any }> {
+    async getUserIdAndInitialData(username: string): Promise<{ userId: string; initialData?: any; fullProfile?: any }> {
         this.setUsername(username);
         log.info(`Attempting to fetch User ID and initial data for ${username}...`);
 
@@ -106,7 +106,8 @@ export class IGClient {
                 log.info(`Found User data via web_profile_info for ${username}`);
                 return { 
                     userId: user.id, 
-                    initialData: user.edge_owner_to_timeline_media 
+                    initialData: user.edge_owner_to_timeline_media,
+                    fullProfile: user
                 };
             }
         } catch (error: any) {
@@ -171,10 +172,36 @@ export class IGClient {
     }
 
     async getPostDetails(shortcode: string) {
-        // Alternative method for single posts
-        const url = `https://www.instagram.com/p/${shortcode}/?__a=1&__d=dis`;
-        const body = await this.request(url);
-        return JSON.parse(body);
+        // Option 1: api/v1/media/info
+        // First we need the internal media ID
+        const postUrl = `https://www.instagram.com/p/${shortcode}/?__a=1&__d=dis`;
+        const body = await this.request(postUrl);
+        const data = JSON.parse(body);
+        const item = data?.items?.[0] || data?.graphql?.shortcode_media;
+        return item;
+    }
+
+    async getComments(shortcode: string, limit: number = 20) {
+        log.info(`Fetching comments for post ${shortcode}...`);
+        // We need the media ID (numerical) to fetch comments via api/v1
+        const postData = await this.getPostDetails(shortcode);
+        const mediaId = postData?.id || postData?.pk;
+        
+        if (!mediaId) {
+            log.warning(`Could not find media ID for ${shortcode}. Skipping comments.`);
+            return [];
+        }
+
+        try {
+            const url = `https://www.instagram.com/api/v1/media/${mediaId}/comments/?can_viewer_resahre=true`;
+            const body = await this.request(url);
+            const data = JSON.parse(body);
+            const comments = data.comments || [];
+            return comments.slice(0, limit);
+        } catch (error: any) {
+            log.error(`Failed to fetch comments for ${shortcode}: ${error.message}`);
+            return [];
+        }
     }
 }
 

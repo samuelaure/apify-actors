@@ -4,52 +4,67 @@
     "type": "object",
     "schemaVersion": 1,
     "properties": {
+        "mode": {
+            "title": "Scraping Mode",
+            "type": "string",
+            "description": "Select the type of data you want to extract.",
+            "editor": "select",
+            "default": "FEED",
+            "enum": ["FEED", "PROFILE", "COMMENTS"],
+            "enumTitles": ["Profile Feed (Posts + Meta)", "Profile Info (Owner Details)", "Post Comments (Full Thread)"]
+        },
         "usernames": {
-            "title": "Usernames",
+            "title": "Usernames / Accounts",
             "type": "array",
-            "description": "List of Instagram usernames to scrape.",
+            "description": "List of usernames, @mentions or links to scrape.",
             "editor": "stringList",
-            "example": ["instagram", "natgeo"]
+            "example": ["@karenexplora", "natgeo"]
         },
         "postUrls": {
             "title": "Specific Post URLs",
             "type": "array",
-            "description": "List of specific Instagram post URLs to scrape (precise extraction).",
+            "description": "Direct links to posts for detailed scraping or comments.",
             "editor": "stringList",
             "example": ["https://www.instagram.com/p/DB123456789/"]
+        },
+        "limit": {
+            "title": "Limit Posts",
+            "type": "integer",
+            "description": "Maximum number of posts to scrape per account.",
+            "minimum": 1,
+            "default": 100
+        },
+        "maxComments": {
+            "title": "Max Comments per Post",
+            "type": "integer",
+            "description": "Number of comments to fetch per post (0 to skip).",
+            "minimum": 0,
+            "default": 0
         },
         "newerThan": {
             "title": "Newer Than (Date)",
             "type": "string",
-            "description": "Only scrape posts published AFTER this date (YYYY-MM-DD or ISO).",
+            "description": "Filter: Only posts AFTER this date (YYYY-MM-DD).",
             "editor": "textfield",
-            "example": "2024-01-01"
+            "example": "2025-01-01"
         },
         "olderThan": {
             "title": "Older Than (Date)",
             "type": "string",
-            "description": "Only scrape posts published BEFORE this date (YYYY-MM-DD or ISO).",
-            "editor": "textfield",
-            "example": "2024-12-31"
-        },
-        "limit": {
-            "title": "Limit Items",
-            "type": "integer",
-            "description": "Maximum number of items to scrape per username.",
-            "minimum": 1,
-            "default": 100
+            "description": "Filter: Only posts BEFORE this date (YYYY-MM-DD).",
+            "editor": "textfield"
         },
         "offset": {
-            "title": "Offset Items",
+            "title": "Offset (Pagination)",
             "type": "integer",
-            "description": "Number of items to skip from the start (pagination support).",
+            "description": "Skip N items from the start.",
             "minimum": 0,
             "default": 0
         },
         "sortDirection": {
             "title": "Sort Direction",
             "type": "string",
-            "description": "Internal result sorting before returning the dataset.",
+            "description": "Result sorting in the output dataset.",
             "editor": "select",
             "default": "desc",
             "enum": ["asc", "desc"],
@@ -58,7 +73,7 @@
         "proxyConfiguration": {
             "title": "Proxy Configuration",
             "type": "object",
-            "description": "Select proxies to be used by your crawler.",
+            "description": "Residential proxies are enforced by default.",
             "editor": "proxy"
         }
     },

@@ -7,6 +7,8 @@ export interface ActorInput {
     olderThan?: string;
     limit?: number;
     offset?: number;
+    maxComments?: number;
+    mode?: 'FEED' | 'PROFILE' | 'COMMENTS';
     sortDirection?: 'asc' | 'desc';
     proxyConfiguration?: any;
 }
@@ -18,6 +20,8 @@ export interface NormalizedInput {
     olderThanDate: Date | null;
     limit: number;
     offset: number;
+    maxComments: number;
+    mode: 'FEED' | 'PROFILE' | 'COMMENTS';
     sortDirection: 'asc' | 'desc';
     proxyConfiguration: any;
 }
@@ -85,6 +89,8 @@ export class InputProcessor {
             olderThanDate: olderThanDate,
             limit: input.limit ?? 100,
             offset: input.offset ?? 0,
+            maxComments: input.maxComments ?? 20,
+            mode: input.mode ?? 'FEED',
             sortDirection: input.sortDirection ?? 'desc',
             proxyConfiguration: proxyConfig,
         };
