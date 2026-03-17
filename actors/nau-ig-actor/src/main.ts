@@ -108,7 +108,13 @@ try {
                             log.info(`Skipping pinned post older than range: ${takenAt.toISOString()}`);
                             continue;
                         }
-                        log.info(`Reached post older than ${input.newerThanDate.toISOString()}. Stopping.`);
+                        
+                        if (firstExecution) {
+                            log.info(`Skipping old post on first page (potential pin): ${takenAt.toISOString()}`);
+                            continue;
+                        }
+
+                        log.info(`Reached post older than ${input.newerThanDate.toISOString()} on page ${state.count / 50 + 1}. Stopping.`);
                         state.hasNextPage = false;
                         break;
                     }

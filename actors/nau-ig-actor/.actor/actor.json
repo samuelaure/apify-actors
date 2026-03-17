@@ -4,11 +4,15 @@
 	"name": "nau-ig-actor",
 	"title": "Nau Custom Instagram Actor",
 	"description": "High-efficiency Instagram scraper for the Nau ecosystem.",
-	"version": "1.1",
+	"version": "1.1.2",
 	"buildTag": "latest",
 	"meta": {
 		"templateId": "ts-crawlee-cheerio",
-		"generatedBy": "<FILL-IN-MODEL>"
+		"generatedBy": "Antigravity/Google Deepmind"
+	},
+	"defaultRunOptions": {
+		"memoryMbytes": 1024,
+		"timeoutSecs": 3600
 	},
 	"input": "./input_schema.json",
 	"output": "./output_schema.json",
