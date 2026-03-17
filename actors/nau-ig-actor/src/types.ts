@@ -24,6 +24,7 @@ export interface NauIGPost {
     hashtags: string[];
     mentions: string[];
     media: NauIGMedia[];
+    isPinned: boolean;
     isReel: boolean;
     videoDuration?: number;
     productType?: string;

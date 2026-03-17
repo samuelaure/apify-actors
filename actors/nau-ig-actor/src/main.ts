@@ -102,7 +102,12 @@ try {
                     const takenAt = new Date(node.taken_at_timestamp * 1000);
 
                     // Date Framing
+                    const isPinned = !!(node.is_pinned || node.pinned);
                     if (input.newerThanDate && takenAt < input.newerThanDate) {
+                        if (isPinned) {
+                            log.info(`Skipping pinned post older than range: ${takenAt.toISOString()}`);
+                            continue;
+                        }
                         log.info(`Reached post older than ${input.newerThanDate.toISOString()}. Stopping.`);
                         state.hasNextPage = false;
                         break;
@@ -189,16 +194,21 @@ try {
     }
 
 
-    // Sorting
+    // Sorting (Separate profile from posts to avoid NaN dates)
+    const profileResults = allResults.filter(r => !r.takenAt); // Profiles/Metadata
+    const postResults = allResults.filter(r => r.takenAt);     // Posts
+
     if (input.sortDirection === 'asc') {
-        allResults.sort((a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime());
+        postResults.sort((a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime());
     } else {
-        allResults.sort((a, b) => new Date(b.takenAt).getTime() - new Date(a.takenAt).getTime());
+        postResults.sort((a, b) => new Date(b.takenAt).getTime() - new Date(a.takenAt).getTime());
     }
 
+    const finalResults = [...profileResults, ...postResults];
+
     // Push to Dataset
-    log.info(`Pushing ${allResults.length} results to dataset.`);
-    await Dataset.pushData(allResults);
+    log.info(`Pushing ${finalResults.length} results to dataset.`);
+    await Dataset.pushData(finalResults);
 
 } catch (error: any) {
     log.error(`Actor failed: ${error.message}`);

@@ -32,6 +32,7 @@ export class MediaTransformer {
             hashtags: this.extractHashtags(caption),
             mentions: this.extractMentions(caption),
             media: [],
+            isPinned: !!(node.is_pinned || node.pinned),
             isReel: node.product_type === 'clips',
             videoDuration: node.video_duration,
             productType: node.product_type,
