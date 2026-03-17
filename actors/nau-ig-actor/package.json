@@ -1,6 +1,6 @@
 {
 	"name": "nau-ig-actor",
-	"version": "0.3.0",
+	"version": "0.3.1",
 	"type": "module",
 	"description": "High-efficiency Instagram scraper for the Nau ecosystem.",
 	"engines": {
