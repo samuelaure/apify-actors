@@ -5,11 +5,16 @@ export class IGClient {
     private proxyUrl?: string;
     private sessionKey: string;
     private cookies: string[] = [];
+    private username?: string;
 
     constructor(proxyUrl?: string) {
         this.proxyUrl = proxyUrl;
         // Unique session key per client instance to maintain sticky proxy sessions
         this.sessionKey = Math.random().toString(36).substring(2, 12);
+    }
+
+    public setUsername(username: string) {
+        this.username = username;
     }
 
     private async request(url: string, searchParams?: Record<string, string>, extraHeaders?: Record<string, string>) {
@@ -29,6 +34,10 @@ export class IGClient {
                     'sec-fetch-dest': 'empty',
                     'sec-fetch-mode': 'cors',
                     'sec-fetch-site': 'same-origin',
+                    'x-ig-app-id': '936619743392459',
+                    'x-asbd-id': '129477',
+                    'x-requested-with': 'XMLHttpRequest',
+                    'referer': this.username ? `https://www.instagram.com/${this.username}/` : 'https://www.instagram.com/',
                     'x-csrftoken': this.getCookieValue('csrftoken') || '',
                     'x-ig-www-claim': '0',
                     'cookie': this.cookies.join('; '),
@@ -81,22 +90,16 @@ export class IGClient {
     }
 
     async getUserIdAndInitialData(username: string): Promise<{ userId: string; initialData?: any }> {
+        this.setUsername(username);
         log.info(`Attempting to fetch User ID and initial data for ${username}...`);
 
         // 1. Establish session
         await this.warmUp(username);
 
-        const commonHeaders = {
-            'x-ig-app-id': '936619743392459',
-            'x-asbd-id': '129477',
-            'x-requested-with': 'XMLHttpRequest',
-            'referer': `https://www.instagram.com/${username}/`,
-        };
-
         // Option 1: web_profile_info API
         try {
             const url = `https://www.instagram.com/api/v1/users/web_profile_info/?username=${username}`;
-            const body = await this.request(url, {}, commonHeaders);
+            const body = await this.request(url);
             const data = JSON.parse(body);
             const user = data?.data?.user || data?.data?.xdt_api__v1__feed__user__timeline_graphql_fixed?.user;
             if (user?.id) {
@@ -113,7 +116,7 @@ export class IGClient {
         // Option 2: Legacy __a=1 endpoint
         try {
             const url = `https://www.instagram.com/${username}/?__a=1&__d=dis`;
-            const body = await this.request(url, {}, commonHeaders);
+            const body = await this.request(url);
             const data = JSON.parse(body);
             const user = data?.graphql?.user || data?.user;
             if (user?.id) {
@@ -130,7 +133,7 @@ export class IGClient {
         // Option 3: Profile Page Source Extraction (Fallback)
         try {
             const profileUrl = `https://www.instagram.com/${username}/`;
-            const html = await this.request(profileUrl, {}, commonHeaders);
+            const html = await this.request(profileUrl);
             const idMatch = html.match(/profilePage_(\d+)/) || html.match(/"profile_id":"(\d+)"/) || html.match(/"id":"(\d+)"/);
             if (idMatch?.[1]) {
                 log.info(`Found User ID via page source: ${idMatch[1]}`);
@@ -153,7 +156,7 @@ export class IGClient {
         };
         
         const url = `https://www.instagram.com/graphql/query/?doc_id=${DOC_ID}&variables=${JSON.stringify(variables)}`;
-        const body = await this.request(url, {}, { 'x-ig-app-id': '936619743392459', 'x-asbd-id': '129477' });
+        const body = await this.request(url);
         const response = JSON.parse(body);
         
         const timeline = response?.data?.user?.edge_owner_to_timeline_media 
