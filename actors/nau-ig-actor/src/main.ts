@@ -56,7 +56,21 @@ try {
                     log.info(`Wait ${delay}ms before next request...`);
                     await new Promise(resolve => setTimeout(resolve, delay));
 
-                    timeline = await client.getProfileFeed(userId, 50, state.after);
+                    // Retry Logic for individual pagination requests
+                    let attempts = 0;
+                    const maxAttempts = 3;
+                    while (attempts < maxAttempts) {
+                        try {
+                            timeline = await client.getProfileFeed(userId, 50, state.after);
+                            break; // Success
+                        } catch (err: any) {
+                            attempts++;
+                            if (attempts >= maxAttempts) throw err;
+                            const retryDelay = attempts * 10000;
+                            log.warning(`Pagination request failed (attempt ${attempts}/${maxAttempts}): ${err.message}. Retrying in ${retryDelay}ms...`);
+                            await new Promise(resolve => setTimeout(resolve, retryDelay));
+                        }
+                    }
                 }
                 
                 firstExecution = false;
