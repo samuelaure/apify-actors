@@ -161,6 +161,19 @@ try {
             const node = response;
             if (!node) throw new Error(`Could not find post data for shortcode: ${shortcode}`);
 
+            // Fetch and push owner profile first (Useful for 9nau context)
+            const postAuthor = node.owner || node.user || {};
+            if (postAuthor.username) {
+                try {
+                    const { fullProfile } = await client.getUserIdAndInitialData(postAuthor.username);
+                    if (fullProfile) {
+                        allResults.push(MediaTransformer.transformProfile(fullProfile));
+                    }
+                } catch (e: any) {
+                    log.debug(`Could not fetch profile for post owner ${postAuthor.username}: ${e.message}`);
+                }
+            }
+
             const post = MediaTransformer.transformProfilePost(node, ''); 
             
             // Fetch comments if needed
