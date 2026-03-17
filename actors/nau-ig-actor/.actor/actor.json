@@ -4,7 +4,7 @@
 	"name": "nau-ig-actor",
 	"title": "Nau Custom Instagram Actor",
 	"description": "High-efficiency Instagram scraper for the Nau ecosystem.",
-	"version": "0.1",
+	"version": "0.3",
 	"buildTag": "latest",
 	"meta": {
 		"templateId": "ts-crawlee-cheerio",
