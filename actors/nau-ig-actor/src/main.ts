@@ -37,12 +37,37 @@ try {
                 isFinished: false
             });
 
-            if (state.isFinished && input.mode === 'FEED') {
-                log.info(`Profile ${username} already processed in previous run. Skipping.`);
-                continue;
-            }
+            // Handshake Recovery Loop with Proxy Rotation
+            const kv = await Actor.openKeyValueStore();
+            let userId = (await kv.getValue<string>(`id-${username.toLowerCase()}`)) || '';
+            let initialData: any;
+            let fullProfile: any;
 
-            const { userId, initialData, fullProfile } = await client.getUserIdAndInitialData(username);
+            let handshakeAttempts = 0;
+            const maxHandshakeAttempts = 3;
+
+            while (handshakeAttempts < maxHandshakeAttempts) {
+                try {
+                    const handshake = await client.getUserIdAndInitialData(username);
+                    userId = handshake.userId;
+                    initialData = handshake.initialData;
+                    fullProfile = handshake.fullProfile;
+                    
+                    // Cache the ID for future 0-cost handshakes
+                    if (userId) await kv.setValue(`id-${username.toLowerCase()}`, userId);
+                    break; 
+                } catch (err: any) {
+                    handshakeAttempts++;
+                    if (handshakeAttempts >= maxHandshakeAttempts) throw err;
+                    
+                    log.warning(`Handshake failed for ${username} (Attempt ${handshakeAttempts}). Rotating proxy...`);
+                    // Rotate proxy session
+                    const newSessionKey = `user_${username.toLowerCase()}_${Math.random().toString(36).substring(2, 7)}`;
+                    const newProxyUrl = await proxyConfiguration?.newUrl(newSessionKey);
+                    client.setProxy(newProxyUrl!);
+                    await new Promise(resolve => setTimeout(resolve, handshakeAttempts * 5000));
+                }
+            }
             
             // Push profile info as the first result for this user (Useful for nauthenticity/9nau)
             if (fullProfile) {
@@ -143,14 +168,14 @@ try {
                     }
                 }
 
-                state.after = pageInfo?.end_cursor;
-                state.hasNextPage = state.hasNextPage && pageInfo?.has_next_page;
-
-                // Mandatory break every ~100 posts
                 if (state.count > 0 && state.count % 100 === 0) {
                     log.info(`Mandatory cool-down break (30s)...`);
                     await new Promise(resolve => setTimeout(resolve, 30000));
                 }
+
+                state.after = pageInfo?.end_cursor;
+                state.hasNextPage = state.hasNextPage && pageInfo?.has_next_page;
+                firstExecution = false;
             }
             state.isFinished = true;
         } catch (error: any) {

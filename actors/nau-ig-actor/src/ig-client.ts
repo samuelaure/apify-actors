@@ -13,6 +13,10 @@ export class IGClient {
         this.sessionKey = Math.random().toString(36).substring(2, 12);
     }
 
+    public setProxy(proxyUrl: string) {
+        this.proxyUrl = proxyUrl;
+    }
+
     public setUsername(username: string) {
         this.username = username;
     }
