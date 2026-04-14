@@ -176,13 +176,31 @@ export class IGClient {
     }
 
     async getPostDetails(shortcode: string) {
-        // Option 1: api/v1/media/info
-        // First we need the internal media ID
-        const postUrl = `https://www.instagram.com/p/${shortcode}/?__a=1&__d=dis`;
-        const body = await this.request(postUrl);
-        const data = JSON.parse(body);
-        const item = data?.items?.[0] || data?.graphql?.shortcode_media;
-        return item;
+        const postUrl = `https://www.instagram.com/p/${shortcode}/`;
+        
+        // 1. Establish session with the post page
+        try {
+            log.debug(`Performing warm-up session discovery for post ${shortcode}...`);
+            await this.request(postUrl);
+        } catch (error: any) {
+            log.debug(`Warm-up failed for post ${shortcode}: ${error.message}`);
+        }
+
+        // 2. Fetch data via __a=1 endpoint
+        const apiUrl = `https://www.instagram.com/p/${shortcode}/?__a=1&__d=dis`;
+        const body = await this.request(apiUrl);
+        
+        try {
+            const data = JSON.parse(body);
+            const item = data?.items?.[0] || data?.graphql?.shortcode_media;
+            return item;
+        } catch (error: any) {
+            // If body starts with '<', it's HTML (likely a block or login redirect)
+            if (body.trim().startsWith('<')) {
+                throw new Error('Received HTML instead of JSON. The scraper might be blocked or requires authentication.');
+            }
+            throw new Error(`Failed to parse post details JSON: ${error.message}`);
+        }
     }
 
     async getComments(shortcode: string, limit: number = 20, includeReplies: boolean = false) {

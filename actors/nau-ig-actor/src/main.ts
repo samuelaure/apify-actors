@@ -193,43 +193,58 @@ try {
     // Process Direct URLs
     for (const postUrl of input.postUrls) {
         log.info(`Scraping direct URL: ${postUrl}`);
-        try {
-            const proxyUrl = await proxyConfiguration?.newUrl();
-            const client = new IGClient(proxyUrl);
+        
+        let attempts = 0;
+        const maxAttempts = 3;
+        let success = false;
+        
+        while (attempts < maxAttempts && !success) {
+            try {
+                const sessionKey = `post_${Math.random().toString(36).substring(2, 7)}`;
+                const proxyUrl = await proxyConfiguration?.newUrl(sessionKey);
+                const client = new IGClient(proxyUrl);
 
-            const shortcode = postUrl.match(/\/p\/([^/]+)/)?.[1] || postUrl.match(/\/reels\/([^/]+)/)?.[1] || postUrl.match(/\/tv\/([^/]+)/)?.[1];
-            if (!shortcode) throw new Error(`Could not extract shortcode from URL: ${postUrl}`);
+                const shortcode = postUrl.match(/\/p\/([^/]+)/)?.[1] || postUrl.match(/\/reels\/([^/]+)/)?.[1] || postUrl.match(/\/tv\/([^/]+)/)?.[1];
+                if (!shortcode) throw new Error(`Could not extract shortcode from URL: ${postUrl}`);
 
-            const response = await client.getPostDetails(shortcode);
-            const node = response;
-            if (!node) throw new Error(`Could not find post data for shortcode: ${shortcode}`);
+                const response = await client.getPostDetails(shortcode);
+                const node = response;
+                if (!node) throw new Error(`Could not find post data for shortcode: ${shortcode}`);
 
-            // Fetch and push owner profile first (Useful for 9nau context)
-            const postAuthor = node.owner || node.user || {};
-            let profileMeta: NauIGProfile | undefined;
-            if (postAuthor.username) {
-                try {
-                    const handshake = await client.getUserIdAndInitialData(postAuthor.username);
-                    if (handshake.fullProfile) {
-                        profileMeta = MediaTransformer.transformProfile(handshake.fullProfile);
-                        allResults.push(profileMeta);
+                // Fetch and push owner profile first (Useful for 9nau context)
+                const postAuthor = node.owner || node.user || {};
+                let profileMeta: NauIGProfile | undefined;
+                if (postAuthor.username) {
+                    try {
+                        const handshake = await client.getUserIdAndInitialData(postAuthor.username);
+                        if (handshake.fullProfile) {
+                            profileMeta = MediaTransformer.transformProfile(handshake.fullProfile);
+                            allResults.push(profileMeta);
+                        }
+                    } catch (e: any) {
+                        log.debug(`Could not fetch profile for post owner ${postAuthor.username}: ${e.message}`);
                     }
-                } catch (e: any) {
-                    log.debug(`Could not fetch profile for post owner ${postAuthor.username}: ${e.message}`);
+                }
+
+                const post = MediaTransformer.transformProfilePost(node, '', profileMeta); 
+                
+                // Fetch comments if needed
+                if (input.maxComments > 0 || input.mode === 'COMMENTS') {
+                    const rawComments = await client.getComments(post.shortcode, input.maxComments, input.includeReplies);
+                    post.comments = rawComments.map((c: any) => MediaTransformer.transformComment(c));
+                }
+
+                allResults.push(post);
+                success = true;
+            } catch (error: any) {
+                attempts++;
+                if (attempts >= maxAttempts) {
+                    log.error(`Failed to scrape post ${postUrl}: ${error.message}`);
+                } else {
+                    log.warning(`Failed to scrape post ${postUrl} (Attempt ${attempts}/${maxAttempts}). Rotating proxy and retrying... Error: ${error.message}`);
+                    await new Promise(resolve => setTimeout(resolve, attempts * 5000));
                 }
             }
-
-            const post = MediaTransformer.transformProfilePost(node, '', profileMeta); 
-            
-            // Fetch comments if needed
-            if (input.maxComments > 0 || input.mode === 'COMMENTS') {
-                const rawComments = await client.getComments(post.shortcode, input.maxComments, input.includeReplies);
-                post.comments = rawComments.map((c: any) => MediaTransformer.transformComment(c));
-            }
-
-            allResults.push(post);
-        } catch (error: any) {
-            log.error(`Failed to scrape post ${postUrl}: ${error.message}`);
         }
     }
 
